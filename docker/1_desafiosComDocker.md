@@ -58,7 +58,8 @@ EXPOSE 8000
 
 # Comando padrão para iniciar o servidor de desenvolvimento
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["gunicorn", "projeto.wsgi:application", "--bind", "0.0.0.0:8082", "--workers", "3"]
 
 =========================================================
 # arquivo docker-compose.yml
@@ -84,21 +85,40 @@ services:
     build: .
     container_name: django_web_app
     restart: always
-    command: >
-      sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
-    volumes:
-      - .:/app
+    # command: >
+    #   sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    
     ports:
-      - "8000:8000"
+      - "8082:8082"
     env_file:
       - .env
     depends_on:
       - db
     networks:
       - django_network
+    volumes:
+      - .:/app
+      - static_volume:/app/projeto/static
+      - ./uploads:/app/uploads 
+  nginx:
+    image: nginx:alpine
+    container_name: django_nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_volume:/app/projeto/static:ro
+      - ./uploads:/app/uploads:ro 
+    depends_on:
+      - web
+    networks:
+      - django_network
 
 volumes:
   mysql_data:
+  static_volume:  # Lembre-se de declarar estes para evitar erros!
+  media_volume:
 
 networks:
   django_network:
@@ -114,13 +134,13 @@ STATIC_URL=/static/
 # Dados do Banco de Dados
 DB_NAME=rnmn_db
 DB_USER=rnmn
-DB_PASSWORD=rnmn12345!
-DB_ROOT_PASSWORD=senharoot12345!
+DB_PASSWORD=@@@@@@
+DB_ROOT_PASSWORD=@@@@@@@
 
 # URL montada dinamicamente
 DATABASE_URL=mysql://${DB_USER}:${DB_PASSWORD}@db:3306/${DB_NAME}
 
-DOMINIO_URL='http://localhost:8000'
+DOMINIO_URL='http://localhost:8082'
 
 EMAIL_ADMINISTRACAO=''
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
